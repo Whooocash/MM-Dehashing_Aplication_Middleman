@@ -1,0 +1,62 @@
+@page "/chat"
+
+@inject NavigationManager Navigation
+@using Microsoft.AspNetCore.SignalR.Client
+
+<h3>Blazor Chat</h3>
+
+<div>
+    <input @bind="userName" placeholder="Twoje imię" />
+    <br />
+    <input @bind="message" placeholder="Wpisz wiadomość" />
+    <button @onclick="SendMessage">Wyślij</button>
+</div>
+
+<!-- Okno z wiadomościami -->
+<div style="margin-top: 20px; max-height: 300px; overflow-y: auto; border: 1px solid #b5aa8d; padding: 10px;">
+    @foreach (var msg in messages)
+    {
+        <div><strong>@msg.User:</strong> @msg.Content</div>
+    }
+</div>
+
+@code {
+    private HubConnection? hubConnection;
+    private string userName = "Anonim";
+    private string message = "";
+    private List<Message> messages = new();
+
+    // Inicjalizacja połączenia z SignalR
+    protected override async Task OnInitializedAsync()
+    {
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/chathub"))
+            .Build();
+
+        // Odbieranie wiadomości
+        hubConnection.On<string, string>("ReceiveMessage", (user, msg) =>
+        {
+            messages.Add(new Message { User = user, Content = msg }); // Zmieniono Message na Content
+            StateHasChanged();
+        });
+
+        await hubConnection.StartAsync();
+    }
+
+    // Funkcja do wysyłania wiadomości
+    private async Task SendMessage()
+    {
+        if (hubConnection is not null)
+        {
+            await hubConnection.SendAsync("SendMessage", userName, message);
+            message = ""; // Wyczyść pole tekstowe po wysłaniu
+        }
+    }
+
+    // Klasa reprezentująca wiadomość
+    public class Message
+    {
+        public string User { get; set; }
+        public string Content { get; set; } // Zmieniono Message na Content
+    }
+}
